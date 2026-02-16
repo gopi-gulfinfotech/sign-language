@@ -17,6 +17,8 @@ GESTURE_SAMPLE_PATH = "gestures/0/100.jpg"
 GESTURES_DIR = Path("gestures")
 DB_PATH = "gesture_db.db"
 
+IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".bmp"}
+
 engine = pyttsx3.init()
 engine.setProperty("rate", 150)
 
@@ -26,25 +28,33 @@ def get_hand_hist():
         return pickle.load(f)
 
 
-def get_image_size():
+def get_sample_gesture_path():
     sample_path = Path(GESTURE_SAMPLE_PATH)
-    if not sample_path.is_file():
-        sample_candidates = sorted(
-            [
-                path
-                for path in GESTURES_DIR.rglob("*")
-                if path.is_file() and path.suffix.lower() in {".jpg", ".jpeg", ".png", ".bmp"}
-            ]
+    if sample_path.is_file():
+        return sample_path
+
+    sample_candidates = sorted(
+        [path for path in GESTURES_DIR.rglob("*") if path.is_file() and path.suffix.lower() in IMAGE_EXTENSIONS]
+    )
+    if sample_candidates:
+        return sample_candidates[0]
+    return None
+
+
+def get_image_size():
+    sample_path = get_sample_gesture_path()
+    if sample_path is None:
+        raise FileNotFoundError(
+            f"Could not find a sample gesture image. Tried '{GESTURE_SAMPLE_PATH}' and "
+            f"searched under '{GESTURES_DIR}'. Make sure the gestures dataset exists "
+            "before running recognition."
         )
-        if sample_candidates:
-            sample_path = sample_candidates[0]
 
     img = cv2.imread(str(sample_path), 0)
     if img is None:
         raise FileNotFoundError(
-            f"Could not read sample gesture image. Tried '{GESTURE_SAMPLE_PATH}' and "
-            f"searched under '{GESTURES_DIR}'. Make sure the gestures dataset exists "
-            "before running recognition."
+            f"Found sample image at '{sample_path}' but failed to read it. "
+            "Please verify dataset files are valid images."
         )
     return img.shape
 
@@ -67,7 +77,7 @@ def find_contours_compat(binary_image):
     return result[0] if len(result) == 2 else result[1]
 
 
-image_x, image_y = get_image_size()
+image_x, image_y = None, None
 
 
 
@@ -398,8 +408,15 @@ def recognize():
 
 
 def validate_runtime_files():
-    required_files = [HISTOGRAM_PATH, MODEL_PATH, DB_PATH, GESTURE_SAMPLE_PATH]
-    missing = [f for f in required_files if not os.path.exists(f)]
+    missing = []
+    for path in [HISTOGRAM_PATH, MODEL_PATH, DB_PATH]:
+        if not os.path.exists(path):
+            missing.append(path)
+
+    sample_path = get_sample_gesture_path()
+    if sample_path is None:
+        missing.append(f"{GESTURES_DIR}/* (at least one gesture image)")
+
     if missing:
         raise FileNotFoundError(
             "Missing required runtime files: " + ", ".join(missing) + ". "
@@ -408,7 +425,9 @@ def validate_runtime_files():
 
 
 def main():
+    global image_x, image_y
     validate_runtime_files()
+    image_x, image_y = get_image_size()
     recognize()
 
 
