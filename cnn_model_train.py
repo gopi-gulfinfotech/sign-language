@@ -26,8 +26,7 @@ def get_num_of_classes():
 
 image_x, image_y = get_image_size()
 
-def cnn_model():
-	num_of_classes = get_num_of_classes()
+def cnn_model(num_of_classes):
 	model = Sequential()
 	model.add(Conv2D(16, (2,2), input_shape=(image_x, image_y, 1), activation='relu'))
 	model.add(MaxPooling2D(pool_size=(2, 2), strides=(2, 2), padding='same'))
@@ -61,12 +60,14 @@ def train():
 
 	train_images = np.reshape(train_images, (train_images.shape[0], image_x, image_y, 1))
 	val_images = np.reshape(val_images, (val_images.shape[0], image_x, image_y, 1))
-	train_labels = to_categorical(train_labels)
-	val_labels = to_categorical(val_labels)
+	num_of_classes = max(int(np.max(train_labels)), int(np.max(val_labels))) + 1
+	num_of_classes = max(num_of_classes, get_num_of_classes())
+	train_labels = to_categorical(train_labels, num_classes=num_of_classes)
+	val_labels = to_categorical(val_labels, num_classes=num_of_classes)
 
 	print(val_labels.shape)
 
-	model, callbacks_list = cnn_model()
+	model, callbacks_list = cnn_model(num_of_classes)
 	model.summary()
 	model.fit(train_images, train_labels, validation_data=(val_images, val_labels), epochs=15, batch_size=500, callbacks=callbacks_list)
 	scores = model.evaluate(val_images, val_labels, verbose=0)
