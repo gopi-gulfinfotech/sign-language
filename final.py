@@ -1,6 +1,7 @@
 import os
 import pickle
 import sqlite3
+from pathlib import Path
 from threading import Thread
 
 import cv2
@@ -13,6 +14,7 @@ os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 HISTOGRAM_PATH = "hist"
 MODEL_PATH = "cnn_model_keras2.h5"
 GESTURE_SAMPLE_PATH = "gestures/0/100.jpg"
+GESTURES_DIR = Path("gestures")
 DB_PATH = "gesture_db.db"
 
 engine = pyttsx3.init()
@@ -25,11 +27,24 @@ def get_hand_hist():
 
 
 def get_image_size():
-    img = cv2.imread(GESTURE_SAMPLE_PATH, 0)
+    sample_path = Path(GESTURE_SAMPLE_PATH)
+    if not sample_path.is_file():
+        sample_candidates = sorted(
+            [
+                path
+                for path in GESTURES_DIR.rglob("*")
+                if path.is_file() and path.suffix.lower() in {".jpg", ".jpeg", ".png", ".bmp"}
+            ]
+        )
+        if sample_candidates:
+            sample_path = sample_candidates[0]
+
+    img = cv2.imread(str(sample_path), 0)
     if img is None:
         raise FileNotFoundError(
-            f"Could not read sample gesture image at '{GESTURE_SAMPLE_PATH}'. "
-            "Make sure the gestures dataset exists before running recognition."
+            f"Could not read sample gesture image. Tried '{GESTURE_SAMPLE_PATH}' and "
+            f"searched under '{GESTURES_DIR}'. Make sure the gestures dataset exists "
+            "before running recognition."
         )
     return img.shape
 
